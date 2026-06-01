@@ -1,22 +1,50 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Users, Clock, ArrowLeft, Plus } from 'lucide-react';
+import { Sun, Moon, Users, Clock, ArrowLeft, Plus, LogOut } from 'lucide-react';
 import { storageService } from './services/storage';
+import { supabase } from './services/supabaseClient';
 import Dashboard from './components/Dashboard';
 import GroupDetail from './components/GroupDetail';
+import Auth from './components/Auth';
 
 export default function App() {
+  const [session, setSession] = useState(null);
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState('Leo');
   const [theme, setTheme] = useState('dark');
-  const [dashboardTab, setDashboardTab] = useState('groups'); // 'groups' | 'activity'
+  const [dashboardTab, setDashboardTab] = useState('groups');
 
-  // Cargar grupos iniciales
+  // 1. Escuchar el estado de autenticación de Supabase
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (!session) setLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (!session) {
+        setGroups([]);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. Cargar grupos cuando cambia la sesión
+  useEffect(() => {
+    if (!session) return;
+    
+    // Obtener nombre del perfil de usuario (por defecto usa el email antes del @)
+    const profileName = session.user.user_metadata.full_name || session.user.email.split('@')[0];
+    setCurrentUser(profileName);
+
     async function loadData() {
+      setLoading(true);
       try {
-        const data = await storageService.getGroups();
+        const data = await storageService.getGroups(session.user.id, profileName);
         setGroups(data);
       } catch (err) {
         console.error('Error al cargar grupos:', err);
@@ -25,9 +53,9 @@ export default function App() {
       }
     }
     loadData();
-  }, []);
+  }, [session]);
 
-  // Sincronizar tema con la clase del body
+  // 3. Sincronizar tema con la clase del body
   useEffect(() => {
     const root = window.document.body;
     if (theme === 'light') {
@@ -39,7 +67,7 @@ export default function App() {
 
   // Obtener lista completa de todos los nombres únicos de integrantes para el selector
   const getAllUniqueMembers = () => {
-    const membersSet = new Set(['Leo']); // 'Leo' siempre existe por defecto
+    const membersSet = new Set([currentUser]);
     groups.forEach(group => {
       group.members.forEach(m => membersSet.add(m));
     });
@@ -47,12 +75,13 @@ export default function App() {
   };
 
   const handleCreateGroup = async (groupData) => {
+    if (!session) return;
     setLoading(true);
     try {
-      const newGroup = await storageService.saveGroup(groupData);
-      const updatedGroups = await storageService.getGroups();
+      const newGroup = await storageService.saveGroup(groupData, session.user.id, currentUser);
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
       setGroups(updatedGroups);
-      setSelectedGroupId(newGroup.id); // Ir directo al grupo creado
+      setSelectedGroupId(newGroup.id);
     } catch (err) {
       console.error(err);
       alert('Error al crear el grupo');
@@ -62,12 +91,13 @@ export default function App() {
   };
 
   const handleDeleteGroup = async (groupId) => {
+    if (!session) return;
     setLoading(true);
     try {
       await storageService.deleteGroup(groupId);
-      const updatedGroups = await storageService.getGroups();
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
       setGroups(updatedGroups);
-      setSelectedGroupId(null); // Volver al dashboard
+      setSelectedGroupId(null);
     } catch (err) {
       console.error(err);
       alert('Error al eliminar el grupo');
@@ -77,10 +107,11 @@ export default function App() {
   };
 
   const handleSaveExpense = async (groupId, expenseData) => {
+    if (!session) return;
     setLoading(true);
     try {
       await storageService.saveExpense(groupId, expenseData);
-      const updatedGroups = await storageService.getGroups();
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
@@ -91,10 +122,11 @@ export default function App() {
   };
 
   const handleDeleteExpense = async (groupId, expenseId) => {
+    if (!session) return;
     setLoading(true);
     try {
       await storageService.deleteExpense(groupId, expenseId);
-      const updatedGroups = await storageService.getGroups();
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
@@ -104,9 +136,36 @@ export default function App() {
     }
   };
 
+  const handleLogout = async () => {
+    if (confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+      setLoading(true);
+      await supabase.auth.signOut();
+      setSelectedGroupId(null);
+    }
+  };
+
   const toggleTheme = () => {
     setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
+
+  if (!session && !loading) {
+    // Si no está autenticado, forzar el flujo de Auth
+    return (
+      <>
+        <header className="app-header">
+          <div className="logo-container">
+            <span className="logo-text">GastamosPorIgual 💸</span>
+          </div>
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Cambiar tema">
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </header>
+        <main className="app-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Auth />
+        </main>
+      </>
+    );
+  }
 
   const activeGroup = groups.find(g => g.id === selectedGroupId);
   const allUniqueMembers = getAllUniqueMembers();
@@ -123,7 +182,6 @@ export default function App() {
         });
       });
     });
-    // Ordenar de más nuevo a más viejo
     return allExpenses
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, 10);
@@ -164,6 +222,11 @@ export default function App() {
           {/* Selector de Tema */}
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Cambiar tema">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          {/* Botón Cerrar Sesión */}
+          <button className="theme-toggle" style={{ color: 'var(--red-text)' }} onClick={handleLogout} aria-label="Cerrar sesión">
+            <LogOut size={18} />
           </button>
         </div>
       </header>

@@ -1,189 +1,256 @@
-// Servicio de almacenamiento local simulado (Mock DB)
-// Retorna promesas para simular la latencia de una base de datos real.
-
-const STORAGE_KEY = 'gastamos_por_igual_groups';
-
-// Datos iniciales de prueba (Mock Data) para guiar al usuario
-const MOCK_GROUPS = [
-  {
-    id: 'group-viaje-playa',
-    name: 'Viaje a la Costa 🌊',
-    description: 'Gastos compartidos del fin de semana con amigos.',
-    members: ['Leo', 'Flor', 'Sofi', 'Nico'],
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Hace 7 días
-    expenses: [
-      {
-        id: 'exp-combustible',
-        description: 'Combustible y Peajes 🚗',
-        amount: 8000,
-        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        paidBy: 'Leo',
-        category: 'transporte',
-        splitType: 'equal',
-        splitDetails: {}
-      },
-      {
-        id: 'exp-super',
-        description: 'Supermercado (Asado y Bebidas) 🥩🍻',
-        amount: 18000,
-        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        paidBy: 'Flor',
-        category: 'comida',
-        splitType: 'equal',
-        splitDetails: {}
-      },
-      {
-        id: 'exp-alojamiento',
-        description: 'Seña del Alquiler 🏡',
-        amount: 32000,
-        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        paidBy: 'Sofi',
-        category: 'hospedaje',
-        splitType: 'equal',
-        splitDetails: {}
-      },
-      {
-        id: 'exp-helado',
-        description: 'Helados de la noche 🍦',
-        amount: 4000,
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        paidBy: 'Nico',
-        category: 'comida',
-        splitType: 'custom',
-        splitDetails: {
-          'Leo': 1500,
-          'Flor': 1500,
-          'Sofi': 1000,
-          'Nico': 0
-        }
-      }
-    ]
-  }
-];
-
-// Helper para simular latencia de red (ej: 300ms)
-const delay = (ms = 250) => new Promise(resolve => setTimeout(resolve, ms));
+import { supabase } from './supabaseClient';
 
 export const storageService = {
-  // Obtener todos los grupos
-  async getGroups() {
-    await delay();
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) {
-      // Si no hay datos, inicializamos con los mocks y los guardamos
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(MOCK_GROUPS));
-      return JSON.parse(JSON.stringify(MOCK_GROUPS));
+  // Obtener todos los grupos vinculados al usuario
+  async getGroups(userId, userName) {
+    if (!userId) return [];
+
+    // 1. Auto-vincular invitaciones previas:
+    // Si hay un integrante registrado en algún grupo con el mismo nombre y user_id nulo,
+    // vinculamos su cuenta de usuario actual.
+    if (userName) {
+      try {
+        await supabase
+          .from('group_members')
+          .update({ user_id: userId })
+          .eq('member_name', userName)
+          .is('user_id', null);
+      } catch (err) {
+        console.error('Error al auto-vincular integrantes:', err);
+      }
     }
-    return JSON.parse(data);
+
+    // 2. Obtener los IDs de grupos a los que pertenece el usuario
+    const { data: memberships, error: memErr } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', userId);
+      
+    if (memErr) throw memErr;
+    if (!memberships || memberships.length === 0) {
+      return [];
+    }
+
+    const groupIds = memberships.map(m => m.group_id);
+
+    // 3. Traer todos los detalles de estos grupos
+    const { data: groups, error: grpErr } = await supabase
+      .from('groups')
+      .select('*')
+      .in('id', groupIds)
+      .order('created_at', { ascending: false });
+
+    if (grpErr) throw grpErr;
+
+    // 4. Para cada grupo, cargar integrantes, gastos y divisiones (splits)
+    const fullGroups = await Promise.all(groups.map(async (group) => {
+      // Integrantes
+      const { data: members, error: memsErr } = await supabase
+        .from('group_members')
+        .select('*')
+        .eq('group_id', group.id);
+      if (memsErr) throw memsErr;
+
+      // Gastos
+      const { data: expenses, error: expsErr } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('group_id', group.id)
+        .order('date', { ascending: true });
+      if (expsErr) throw expsErr;
+
+      // Divisiones
+      let fullExpenses = [];
+      if (expenses.length > 0) {
+        const expenseIds = expenses.map(e => e.id);
+        const { data: splits, error: splitsErr } = await supabase
+          .from('expense_splits')
+          .select('*')
+          .in('expense_id', expenseIds);
+        if (splitsErr) throw splitsErr;
+
+        fullExpenses = expenses.map(exp => {
+          const expSplits = splits.filter(s => s.expense_id === exp.id);
+          const splitDetails = {};
+          expSplits.forEach(s => {
+            splitDetails[s.member_name] = parseFloat(s.share_amount);
+          });
+
+          return {
+            id: exp.id,
+            description: exp.description,
+            amount: parseFloat(exp.amount),
+            date: exp.date,
+            paidBy: exp.paid_by,
+            category: exp.category,
+            splitType: exp.split_type,
+            splitDetails
+          };
+        });
+      } else {
+        fullExpenses = [];
+      }
+
+      return {
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        members: members.map(m => m.member_name),
+        memberDetails: members,
+        expenses: fullExpenses,
+        createdAt: group.created_at
+      };
+    }));
+
+    return fullGroups;
   },
 
-  // Obtener un grupo por ID
-  async getGroupById(id) {
-    await delay();
-    const groups = await this.getGroups();
+  // Obtener un grupo específico por ID
+  async getGroupById(id, userId) {
+    if (!userId) return null;
+    const groups = await this.getGroups(userId);
     return groups.find(g => g.id === id) || null;
   },
 
-  // Guardar o editar un grupo (nombre, descripción, integrantes)
-  async saveGroup(groupData) {
-    await delay();
-    const groups = await this.getGroups();
-    let updatedGroup;
+  // Guardar o editar un grupo
+  async saveGroup(groupData, creatorUserId, creatorName) {
+    let groupId = groupData.id;
 
-    if (groupData.id) {
-      // Editar existente
-      const index = groups.findIndex(g => g.id === groupData.id);
-      if (index !== -1) {
-        groups[index] = {
-          ...groups[index],
+    if (groupId) {
+      // Editar nombre/descripción
+      const { error: grpErr } = await supabase
+        .from('groups')
+        .update({
           name: groupData.name,
-          description: groupData.description,
-          // Al editar integrantes, mantenemos los existentes y agregamos nuevos
-          members: groupData.members
-        };
-        updatedGroup = groups[index];
+          description: groupData.description
+        })
+        .eq('id', groupId);
+      if (grpErr) throw grpErr;
+
+      // Vincular nuevos integrantes
+      const { data: currentMembers, error: curMemErr } = await supabase
+        .from('group_members')
+        .select('member_name')
+        .eq('group_id', groupId);
+      if (curMemErr) throw curMemErr;
+
+      const currentNames = currentMembers.map(m => m.member_name);
+      const newNames = groupData.members.filter(name => !currentNames.includes(name));
+
+      if (newNames.length > 0) {
+        const membersToInsert = newNames.map(name => ({
+          group_id: groupId,
+          member_name: name,
+          user_id: name === creatorName ? creatorUserId : null
+        }));
+        const { error: insMemErr } = await supabase
+          .from('group_members')
+          .insert(membersToInsert);
+        if (insMemErr) throw insMemErr;
       }
     } else {
       // Crear nuevo grupo
-      updatedGroup = {
-        id: 'group-' + Math.random().toString(36).substr(2, 9),
-        name: groupData.name,
-        description: groupData.description || '',
-        members: groupData.members,
-        expenses: [],
-        createdAt: new Date().toISOString()
-      };
-      groups.push(updatedGroup);
+      const { data: newGroup, error: grpErr } = await supabase
+        .from('groups')
+        .insert({
+          name: groupData.name,
+          description: groupData.description,
+          created_by: creatorUserId
+        })
+        .select()
+        .single();
+      if (grpErr) throw grpErr;
+
+      groupId = newGroup.id;
+
+      // Insertar integrantes
+      const membersToInsert = groupData.members.map(name => ({
+        group_id: groupId,
+        member_name: name,
+        user_id: name === creatorName ? creatorUserId : null
+      }));
+
+      const { error: insMemErr } = await supabase
+        .from('group_members')
+        .insert(membersToInsert);
+      if (insMemErr) throw insMemErr;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-    return updatedGroup;
+    return { id: groupId };
   },
 
   // Eliminar un grupo
   async deleteGroup(id) {
-    await delay();
-    let groups = await this.getGroups();
-    groups = groups.filter(g => g.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+    const { error } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
   },
 
   // Guardar o editar un gasto dentro de un grupo
   async saveExpense(groupId, expenseData) {
-    await delay();
-    const groups = await this.getGroups();
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-    if (groupIndex === -1) throw new Error('Grupo no encontrado');
+    let expenseId = expenseData.id;
 
-    const group = groups[groupIndex];
-    let updatedExpense;
+    const expensePayload = {
+      group_id: groupId,
+      description: expenseData.description,
+      amount: expenseData.amount,
+      date: expenseData.date,
+      paid_by: expenseData.paidBy,
+      category: expenseData.category,
+      split_type: expenseData.splitType
+    };
 
-    if (expenseData.id) {
-      // Editar gasto existente
-      const expIndex = group.expenses.findIndex(e => e.id === expenseData.id);
-      if (expIndex !== -1) {
-        group.expenses[expIndex] = {
-          ...group.expenses[expIndex],
-          description: expenseData.description,
-          amount: parseFloat(expenseData.amount),
-          date: expenseData.date || new Date().toISOString().split('T')[0],
-          paidBy: expenseData.paidBy,
-          category: expenseData.category || 'varios',
-          splitType: expenseData.splitType || 'equal',
-          splitDetails: expenseData.splitDetails || {}
-        };
-        updatedExpense = group.expenses[expIndex];
-      }
+    if (expenseId) {
+      // Editar
+      const { error: expErr } = await supabase
+        .from('expenses')
+        .update(expensePayload)
+        .eq('id', expenseId);
+      if (expErr) throw expErr;
+
+      // Limpiar splits viejos
+      const { error: delErr } = await supabase
+        .from('expense_splits')
+        .delete()
+        .eq('expense_id', expenseId);
+      if (delErr) throw delErr;
     } else {
-      // Crear nuevo gasto
-      updatedExpense = {
-        id: 'expense-' + Math.random().toString(36).substr(2, 9),
-        description: expenseData.description,
-        amount: parseFloat(expenseData.amount),
-        date: expenseData.date || new Date().toISOString().split('T')[0],
-        paidBy: expenseData.paidBy,
-        category: expenseData.category || 'varios',
-        splitType: expenseData.splitType || 'equal',
-        splitDetails: expenseData.splitDetails || {}
-      };
-      group.expenses.push(updatedExpense);
+      // Crear nuevo
+      const { data: newExp, error: expErr } = await supabase
+        .from('expenses')
+        .insert(expensePayload)
+        .select()
+        .single();
+      if (expErr) throw expErr;
+
+      expenseId = newExp.id;
     }
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-    return group;
+    // Insertar splits si no es división equitativa simple
+    if (expenseData.splitType !== 'equal' && expenseData.splitDetails) {
+      const splitsToInsert = Object.keys(expenseData.splitDetails).map(name => ({
+        expense_id: expenseId,
+        member_name: name,
+        share_amount: expenseData.splitDetails[name]
+      }));
+
+      const { error: splErr } = await supabase
+        .from('expense_splits')
+        .insert(splitsToInsert);
+      if (splErr) throw splErr;
+    }
+
+    return { id: expenseId };
   },
 
-  // Eliminar un gasto de un grupo
+  // Eliminar un gasto
   async deleteExpense(groupId, expenseId) {
-    await delay();
-    const groups = await this.getGroups();
-    const groupIndex = groups.findIndex(g => g.id === groupId);
-    if (groupIndex === -1) throw new Error('Grupo no encontrado');
-
-    const group = groups[groupIndex];
-    group.expenses = group.expenses.filter(e => e.id !== expenseId);
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-    return group;
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', expenseId);
+    if (error) throw error;
   }
 };
