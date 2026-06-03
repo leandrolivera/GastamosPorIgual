@@ -12,19 +12,23 @@ Este documento contiene el registro de cambios de la sesión de hoy y detalla lo
 2. **Mejora en Reporte de Errores**:
    - Modificamos [App.jsx](file:///c:/Users/Leo/Documents/GastamosPorIgual/src/App.jsx) en los bloques `catch` para que las alertas del navegador muestren el mensaje de error exacto devuelto por la base de datos de Supabase en lugar de un texto genérico. Esto hará que el diagnóstico de fallas sea inmediato en pantalla.
 
-3. **Sincronización Git**:
+3. **Solución del Bug de Integrantes y Creación de Grupos**:
+   - Descubrimos e implementamos el arreglo para el integrante hardcodeado `'Leo'`. Ahora el formulario se inicializa de forma dinámica con `currentUser` (tu nombre de usuario logueado, ej: `Leandro Olivera Hotmail`). Esto garantiza que tu ID de usuario de Supabase se vincule correctamente a la membresía del grupo, resolviendo el problema por el cual los grupos creados desaparecían al volver a la pantalla principal.
+   - También corregimos la regla del chip de integrante para que no puedas eliminarte a vos mismo del grupo que estás creando.
+
+4. **Sincronización Git**:
    - Guardamos y enviamos todos los cambios a la rama principal de GitHub: [leandrolivera/GastamosPorIgual](https://github.com/leandrolivera/GastamosPorIgual.git).
 
 ---
 
-## ⚠️ Causa y Solución del Error al Crear el Grupo
+## ⚠️ Causa y Solución del Error de Base de Datos al Crear el Grupo
 
-Al intentar crear un grupo, la aplicación arroja un cuadro emergente de **"Error al crear el grupo"** y la pantalla se queda cargando de forma infinita.
+Al intentar crear un grupo, si la aplicación arroja un cuadro emergente de **"Error al crear el grupo"** y la pantalla se queda cargando de forma infinita, sigue estos pasos:
 
 ### Diagnóstico Técnico:
 1. Al haberte registrado en la aplicación **antes** de haber ejecutado el script SQL en Supabase, tu usuario se creó únicamente en la tabla interna de Supabase (`auth.users`), pero **no se creó en tu tabla pública `public.profiles`** (ya que el trigger de Postgres que copia los perfiles sólo se ejecuta para registros nuevos posteriores al script SQL).
 2. Cuando intentás crear un grupo, la aplicación intenta asociarte como creador insertando tu ID en la columna `created_by` de la tabla `groups`.
-3. Como la columna `created_by` tiene una clave foránea que apunta a `public.profiles(id)`, la base de datos de Supabase rechaza la consulta arrojando un error de integridad (Foreign Key Constraint Violation) porque tu ID no existe en la tabla de perfiles.
+3. Como la columna `created_by` tiene una restricción de clave foránea que apunta a `public.profiles(id)`, la base de datos de Supabase rechaza la consulta arrojando un error de integridad (Foreign Key Constraint Violation) porque tu ID no existe en la tabla de perfiles.
 
 ### Solución:
 Entrá al **SQL Editor** de Supabase en tu panel web, abrí una pestaña de consultas e introducí y ejecutá el siguiente bloque SQL para regularizar (copiar) tus usuarios existentes a la tabla de perfiles pública:
@@ -43,7 +47,7 @@ ON CONFLICT (id) DO NOTHING;
 1. **Regularizar Base de Datos**: Ejecutar la consulta SQL indicada arriba en Supabase para insertar tu perfil de usuario.
 2. **Probar Creación de Grupo**:
    - Iniciar la aplicación (`npm run dev`).
-   - Intentar crear un grupo de nuevo (ahora debería guardarse en la base de datos de Supabase sin problemas).
+   - Intentar crear un grupo de nuevo (ahora debería guardarse en la base de datos de Supabase sin problemas y aparecer inmediatamente en la lista gracias al parche del integrante dinámico).
 3. **Verificación de Sincronización**:
    - Abrir la app desde tu PC y desde tu celular con la misma cuenta.
    - Agregar un gasto en un dispositivo y verificar que el balance general, saldos y estadísticas cambien automáticamente en el otro dispositivo en tiempo real.
