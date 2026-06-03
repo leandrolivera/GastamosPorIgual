@@ -84,7 +84,7 @@ export default function App() {
       setSelectedGroupId(newGroup.id);
     } catch (err) {
       console.error(err);
-      alert('Error al crear el grupo');
+      alert('Error al crear el grupo: ' + (err.message || err.details || err));
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ export default function App() {
       setSelectedGroupId(null);
     } catch (err) {
       console.error(err);
-      alert('Error al eliminar el grupo');
+      alert('Error al eliminar el grupo: ' + (err.message || err.details || err));
     } finally {
       setLoading(false);
     }
@@ -115,7 +115,7 @@ export default function App() {
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
-      alert('Error al registrar el gasto');
+      alert('Error al registrar el gasto: ' + (err.message || err.details || err));
     } finally {
       setLoading(false);
     }
@@ -130,7 +130,7 @@ export default function App() {
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
-      alert('Error al eliminar el gasto');
+      alert('Error al eliminar el gasto: ' + (err.message || err.details || err));
     } finally {
       setLoading(false);
     }
