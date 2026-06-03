@@ -44,7 +44,7 @@ export default function App() {
     async function loadData() {
       setLoading(true);
       try {
-        const data = await storageService.getGroups(session.user.id, profileName);
+        const data = await storageService.getGroups(session.user.id, profileName, session.user.email);
         setGroups(data);
       } catch (err) {
         console.error('Error al cargar grupos:', err);
@@ -78,8 +78,8 @@ export default function App() {
     if (!session) return;
     setLoading(true);
     try {
-      const newGroup = await storageService.saveGroup(groupData, session.user.id, currentUser);
-      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
+      const newGroup = await storageService.saveGroup(groupData, session.user.id, currentUser, session.user.email);
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser, session.user.email);
       setGroups(updatedGroups);
       setSelectedGroupId(newGroup.id);
     } catch (err) {
@@ -95,7 +95,7 @@ export default function App() {
     setLoading(true);
     try {
       await storageService.deleteGroup(groupId);
-      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser, session.user.email);
       setGroups(updatedGroups);
       setSelectedGroupId(null);
     } catch (err) {
@@ -111,7 +111,7 @@ export default function App() {
     setLoading(true);
     try {
       await storageService.saveExpense(groupId, expenseData);
-      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser, session.user.email);
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
@@ -126,7 +126,7 @@ export default function App() {
     setLoading(true);
     try {
       await storageService.deleteExpense(groupId, expenseId);
-      const updatedGroups = await storageService.getGroups(session.user.id, currentUser);
+      const updatedGroups = await storageService.getGroups(session.user.id, currentUser, session.user.email);
       setGroups(updatedGroups);
     } catch (err) {
       console.error(err);
@@ -196,27 +196,9 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Selector de Perspectiva (currentUser) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--panel-border)', padding: '4px 8px', borderRadius: '10px' }}>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Ver como:</span>
-            <select
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-primary)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-              value={currentUser}
-              onChange={(e) => setCurrentUser(e.target.value)}
-            >
-              {allUniqueMembers.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
+          {/* Nombre del Usuario Logueado */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--panel-border)', padding: '6px 12px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 600 }}>
+            <span>Hola, {currentUser} 👋</span>
           </div>
 
           {/* Selector de Tema */}
@@ -263,6 +245,7 @@ export default function App() {
                 onCreateGroup={handleCreateGroup}
                 onDeleteGroup={handleDeleteGroup}
                 currentUser={currentUser}
+                userEmail={session.user.email}
               />
             ) : (
               /* Pestaña de Actividad Reciente */

@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS public.group_members (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   group_id UUID REFERENCES public.groups(id) ON DELETE CASCADE NOT NULL,
   member_name TEXT NOT NULL,
+  email TEXT, -- Correo para invitar y auto-vincular
   user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE(group_id, member_name)

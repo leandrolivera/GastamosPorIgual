@@ -229,15 +229,48 @@ export default function GroupDetail({ group, onBack, onSaveExpense, onDeleteExpe
                 {group.members.map(member => {
                   const bal = balances[member] || 0;
                   const isCurrent = member === currentUser;
+                  const detail = group.memberDetails?.find(d => d.member_name === member);
+                  const hasJoined = detail && detail.user_id !== null;
+                  const email = detail?.email;
 
                   return (
                     <div key={member} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: isCurrent ? 600 : 400, color: isCurrent ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
-                        {member} {isCurrent && '(Vos)'}
-                      </span>
-                      <span style={{ fontWeight: 600, color: bal > 0 ? 'var(--green-text)' : bal < 0 ? 'var(--red-text)' : 'var(--text-muted)' }}>
-                        {bal > 0 ? `+$${bal.toFixed(2)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(2)}` : '$0.00'}
-                      </span>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontWeight: isCurrent ? 600 : 400, color: isCurrent ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
+                          {member} {isCurrent && '(Vos)'}
+                        </span>
+                        {!isCurrent && !hasJoined && (
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            Invitado {email && `(${email})`}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontWeight: 600, color: bal > 0 ? 'var(--green-text)' : bal < 0 ? 'var(--red-text)' : 'var(--text-muted)' }}>
+                          {bal > 0 ? `+$${bal.toFixed(2)}` : bal < 0 ? `-$${Math.abs(bal).toFixed(2)}` : '$0.00'}
+                        </span>
+                        
+                        {!isCurrent && !hasJoined && (
+                          <button 
+                            className="btn btn-ghost btn-sm" 
+                            style={{ padding: '4px 8px', fontSize: '0.7rem', gap: '4px', border: '1px solid var(--panel-border)', borderRadius: '6px' }}
+                            onClick={() => {
+                              const inviteUrl = window.location.origin;
+                              let msg = '';
+                              if (email) {
+                                msg = `¡Hola ${member}! Te agregué al grupo "${group.name}" en GastamosPorIgual. Registrate con tu correo "${email}" para unirte: ${inviteUrl}`;
+                              } else {
+                                msg = `¡Hola ${member}! Te agregué al grupo "${group.name}" en GastamosPorIgual. Creá tu cuenta para unirte: ${inviteUrl}`;
+                              }
+                              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+                            }}
+                            title="Compartir invitación por WhatsApp"
+                          >
+                            Invitar
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

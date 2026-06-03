@@ -2,12 +2,23 @@ import { supabase } from './supabaseClient';
 
 export const storageService = {
   // Obtener todos los grupos vinculados al usuario
-  async getGroups(userId, userName) {
+  async getGroups(userId, userName, userEmail) {
     if (!userId) return [];
 
-    // 1. Auto-vincular invitaciones previas:
-    // Si hay un integrante registrado en algún grupo con el mismo nombre y user_id nulo,
-    // vinculamos su cuenta de usuario actual.
+    // 1. Auto-vincular invitaciones previas por Email (Primario y Seguro)
+    if (userEmail) {
+      try {
+        await supabase
+          .from('group_members')
+          .update({ user_id: userId })
+          .eq('email', userEmail)
+          .is('user_id', null);
+      } catch (err) {
+        console.error('Error al auto-vincular por email:', err);
+      }
+    }
+
+    // 1b. Auto-vincular por Nombre (Secundario como fallback)
     if (userName) {
       try {
         await supabase
@@ -16,7 +27,7 @@ export const storageService = {
           .eq('member_name', userName)
           .is('user_id', null);
       } catch (err) {
-        console.error('Error al auto-vincular integrantes:', err);
+        console.error('Error al auto-vincular por nombre:', err);
       }
     }
 
@@ -113,7 +124,7 @@ export const storageService = {
   },
 
   // Guardar o editar un grupo
-  async saveGroup(groupData, creatorUserId, creatorName) {
+  async saveGroup(groupData, creatorUserId, creatorName, creatorEmail) {
     let groupId = groupData.id;
 
     if (groupId) {
@@ -135,13 +146,15 @@ export const storageService = {
       if (curMemErr) throw curMemErr;
 
       const currentNames = currentMembers.map(m => m.member_name);
-      const newNames = groupData.members.filter(name => !currentNames.includes(name));
+      // groupData.members es un array de objetos { name, email }
+      const newMembers = groupData.members.filter(m => !currentNames.includes(m.name));
 
-      if (newNames.length > 0) {
-        const membersToInsert = newNames.map(name => ({
+      if (newMembers.length > 0) {
+        const membersToInsert = newMembers.map(m => ({
           group_id: groupId,
-          member_name: name,
-          user_id: name === creatorName ? creatorUserId : null
+          member_name: m.name,
+          email: m.email || null,
+          user_id: m.name === creatorName ? creatorUserId : null
         }));
         const { error: insMemErr } = await supabase
           .from('group_members')
@@ -164,10 +177,11 @@ export const storageService = {
       groupId = newGroup.id;
 
       // Insertar integrantes
-      const membersToInsert = groupData.members.map(name => ({
+      const membersToInsert = groupData.members.map(m => ({
         group_id: groupId,
-        member_name: name,
-        user_id: name === creatorName ? creatorUserId : null
+        member_name: m.name,
+        email: m.email || null,
+        user_id: m.name === creatorName ? creatorUserId : null
       }));
 
       const { error: insMemErr } = await supabase

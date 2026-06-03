@@ -2,17 +2,18 @@ import React, { useState } from 'react';
 import { Plus, Users, Trash2, ArrowRight, DollarSign, Calendar, ChevronRight, X, User } from 'lucide-react';
 import { calculateBalancesAndDebts } from '../utils/debtSimplifier';
 
-export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, currentUser }) {
+export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, currentUser, userEmail }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
   const [memberInput, setMemberInput] = useState('');
-  const [membersList, setMembersList] = useState([currentUser]); // Creador por defecto
+  const [memberEmailInput, setMemberEmailInput] = useState('');
+  const [membersList, setMembersList] = useState([]); // Array de objetos { name, email }
 
   const handleOpenModal = () => {
     setGroupName('');
     setGroupDesc('');
-    setMembersList([currentUser]);
+    setMembersList([{ name: currentUser, email: userEmail || null }]);
     setIsModalOpen(true);
   };
 
@@ -35,17 +36,28 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
   const handleAddMember = (e) => {
     e.preventDefault();
     const name = memberInput.trim();
+    const email = memberEmailInput.trim() || null;
     if (!name) return;
-    if (membersList.includes(name)) {
+    
+    // Validar nombre duplicado (ignorando mayúsculas)
+    if (membersList.some(m => m.name.toLowerCase() === name.toLowerCase())) {
       alert('Este integrante ya fue agregado.');
       return;
     }
-    setMembersList([...membersList, name]);
+    
+    // Validar email duplicado
+    if (email && membersList.some(m => m.email && m.email.toLowerCase() === email.toLowerCase())) {
+      alert('Este correo ya fue asignado a otro integrante.');
+      return;
+    }
+    
+    setMembersList([...membersList, { name, email }]);
     setMemberInput('');
+    setMemberEmailInput('');
   };
 
   const handleRemoveMember = (nameToRemove) => {
-    setMembersList(membersList.filter(name => name !== nameToRemove));
+    setMembersList(membersList.filter(m => m.name !== nameToRemove));
   };
 
   const handleCreateGroup = (e) => {
@@ -62,13 +74,13 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
     onCreateGroup({
       name: groupName.trim(),
       description: groupDesc.trim(),
-      members: membersList
+      members: membersList // envía array de objetos { name, email }
     });
 
     // Resetear form
     setGroupName('');
     setGroupDesc('');
-    setMembersList([currentUser]);
+    setMembersList([{ name: currentUser, email: userEmail || null }]);
     setIsModalOpen(false);
   };
 
@@ -228,31 +240,47 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
               <div className="form-group">
                 <label className="form-label">Integrantes del Grupo</label>
                 
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{ position: 'relative', flex: 1 }}>
-                    <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                      <User size={16} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <div style={{ position: 'relative', flex: 1.2 }}>
+                      <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                        <User size={16} />
+                      </div>
+                      <input 
+                        type="text" 
+                        placeholder="Nombre (ej. Flor)" 
+                        className="input-field"
+                        style={{ paddingLeft: '36px' }}
+                        value={memberInput}
+                        onChange={(e) => setMemberInput(e.target.value)}
+                      />
                     </div>
-                    <input 
-                      type="text" 
-                      placeholder="Nombre del integrante" 
-                      className="input-field"
-                      style={{ paddingLeft: '36px' }}
-                      value={memberInput}
-                      onChange={(e) => setMemberInput(e.target.value)}
-                    />
+                    <div style={{ position: 'relative', flex: 1.5 }}>
+                      <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>@</span>
+                      </div>
+                      <input 
+                        type="email" 
+                        placeholder="Email (opcional)" 
+                        className="input-field"
+                        style={{ paddingLeft: '32px' }}
+                        value={memberEmailInput}
+                        onChange={(e) => setMemberEmailInput(e.target.value)}
+                      />
+                    </div>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddMember}>
+                      Agregar
+                    </button>
                   </div>
-                  <button type="button" className="btn btn-secondary" onClick={handleAddMember}>
-                    Agregar
-                  </button>
                 </div>
 
                 <div className="member-chip-container">
-                  {membersList.map(name => (
-                    <span key={name} className="member-chip">
-                      {name}
-                      {name !== currentUser && (
-                        <button type="button" onClick={() => handleRemoveMember(name)} aria-label={`Eliminar a ${name}`}>
+                  {membersList.map(m => (
+                    <span key={m.name} className="member-chip" title={m.email || 'Sin correo'}>
+                      {m.name}
+                      {m.email && <span style={{ fontSize: '0.7rem', opacity: 0.7, marginLeft: '4px' }}>({m.email})</span>}
+                      {m.name !== currentUser && (
+                        <button type="button" onClick={() => handleRemoveMember(m.name)} aria-label={`Eliminar a ${m.name}`}>
                           <X size={14} />
                         </button>
                       )}
