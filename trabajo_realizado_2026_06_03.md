@@ -31,36 +31,44 @@ Este documento contiene el registro de cambios de la sesión de hoy y detalla lo
 
 ---
 
-## ⚠️ Causa y Solución del Error de Base de Datos al Crear el Grupo
+## ⚠️ Diagnóstico y Solución de Problemas de Supabase
 
-Al intentar crear un grupo, si la aplicación arroja un cuadro emergente de **"Error al crear el grupo"** y la pantalla se queda cargando de forma infinita, sigue estos pasos:
+### 1. El correo de confirmación redirige a `localhost:3000`
+- **Causa**: Supabase tiene configurada por defecto la URL del sitio local `http://localhost:3000` para las redirecciones tras la autenticación.
+- **Solución**:
+  1. Entrá a tu panel de Supabase y ve a **Authentication** (menú izquierdo).
+  2. Hacé click en **URL Configuration** (o **Settings** -> **URL Configuration**).
+  3. En el campo **Site URL**, reemplazá `http://localhost:3000` por la URL de producción: `https://gastamosporigual.pages.dev`.
+  4. En el campo **Redirect URLs** (debajo), hacé click en **Add URL** e ingresá `http://localhost:5173` para que cuando estés desarrollando y probando localmente en tu PC también funcione la redirección.
 
-### Diagnóstico Técnico:
-1. Al haberte registrado en la aplicación **antes** de haber ejecutado el script SQL en Supabase, tu usuario se creó únicamente en la tabla interna de Supabase (`auth.users`), pero **no se creó en tu tabla pública `public.profiles`** (ya que el trigger de Postgres que copia los perfiles sólo se ejecuta para registros nuevos posteriores al script SQL).
-2. Cuando intentás crear un grupo, la aplicación intenta asociarte como creador insertando tu ID en la columna `created_by` de la tabla `groups`.
-3. Como la columna `created_by` tiene una restricción de clave foránea que apunta a `public.profiles(id)`, la base de datos de Supabase rechaza la consulta arrojando un error de integridad (Foreign Key Constraint Violation) porque tu ID no existe en la tabla de perfiles.
+### 2. El mail de registro llega a la carpeta SPAM
+- **Causa**: Supabase utiliza un servidor de correo SMTP público compartido para las cuentas gratuitas de prueba, el cual tiene baja reputación de entrega.
+- **Solución**:
+  - Para producción final, se puede conectar un SMTP gratuito propio (ej: Resend o SendGrid).
+  - **Para pruebas rápidas y desarrollo**, lo más recomendado es **desactivar la confirmación obligatoria por correo**:
+    1. En tu panel de Supabase, ve a **Authentication** -> **Providers**.
+    2. Hacé click para expandir la sección de **Email**.
+    3. Desactivá la casilla que dice **Confirm email** (Confirmar correo electrónico).
+    4. Hacé click en **Save** (Guardar).
+    *A partir de esto, cualquier usuario nuevo se registrará y podrá iniciar sesión al instante sin tener que verificar su correo.*
 
-### Solución SQL para tu panel de Supabase:
-Para regularizar tus usuarios previos y añadir la columna `email` a la tabla actual, ejecutá este script en el **SQL Editor** de Supabase:
-
-```sql
--- 1. Agregar columna email a group_members
-ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS email TEXT;
-
--- 2. Copiar perfiles de usuarios previos si existieran
-INSERT INTO public.profiles (id, email, full_name)
-SELECT id, email, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1))
-FROM auth.users
-ON CONFLICT (id) DO NOTHING;
-```
+### 3. Error al crear el grupo por falta de perfil de usuario
+- **Causa**: Al registrarse antes de ejecutar el SQL, el perfil en `public.profiles` no existe, violando la clave foránea.
+- **Solución SQL**: Ejecutar el siguiente script en el **SQL Editor** de Supabase:
+  ```sql
+  ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS email TEXT;
+  INSERT INTO public.profiles (id, email, full_name)
+  SELECT id, email, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1))
+  FROM auth.users
+  ON CONFLICT (id) DO NOTHING;
+  ```
 
 ---
 
 ## 📋 Tareas Pendientes para la Próxima Sesión
 
-1. **Migración SQL en Supabase**: Ejecutar la consulta SQL indicada arriba en Supabase para habilitar la columna de emails y regularizar perfiles.
-2. **Probar Flujo de Invitación**:
-   - Crear un grupo nuevo agregando un integrante ficticio (ej. Nombre: `Flor`, Email: `tu_otro_correo@gmail.com`).
-   - Ir a la pestaña **Balances**, hacer click en **Invitar** y verificar que se abra WhatsApp con la plantilla correcta.
-   - En una ventana de incógnito, registrarse en `gastamosporigual.pages.dev` con el correo `tu_otro_correo@gmail.com`.
-   - Verificar que al iniciar sesión con esa cuenta nueva, el grupo recién creado aparezca de inmediato sincronizado en su pantalla.
+1. **Configurar URLs de Redirección en Supabase**: Seguir los pasos del punto 1 anterior.
+2. **Desactivar Confirmación por Email**: Seguir los pasos del punto 2 anterior para agilizar el registro de nuevos usuarios en tu red de amigos.
+3. **Validar Flujo Completo**:
+   - Crear un grupo con integrantes con email desde la PC.
+   - Registrar ese integrante con su email desde el celu y validar que ingrese directamente al grupo.
