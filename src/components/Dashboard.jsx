@@ -248,7 +248,7 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
                       </div>
                       <input 
                         type="text" 
-                        placeholder="Nombre (ej. Flor)" 
+                        placeholder="Nombre" 
                         className="input-field"
                         style={{ paddingLeft: '36px' }}
                         value={memberInput}
