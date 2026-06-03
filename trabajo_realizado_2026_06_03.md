@@ -21,6 +21,7 @@ Este documento contiene el registro de cambios de la sesión de hoy y detalla lo
    - Adaptamos [storage.js](file:///c:/Users/Leo/Documents/GastamosPorIgual/src/services/storage.js) para guardar los correos opcionales y para **auto-vincular de forma segura** a los usuarios cuando se registran utilizando su email.
    - Modificamos [Dashboard.jsx](file:///c:/Users/Leo/Documents/GastamosPorIgual/src/components/Dashboard.jsx) para agregar los campos **Nombre** y **Email (opcional)** al añadir integrantes, mostrándolos en los chips de integrante.
    - Modificamos [GroupDetail.jsx](file:///c:/Users/Leo/Documents/GastamosPorIgual/src/components/GroupDetail.jsx) para que en la pestaña de **Balances**, los integrantes que aún no tienen una cuenta de Supabase enlazada muestren una etiqueta *"Invitado"* y un botón de **"Invitar"** que abre WhatsApp con un mensaje y link pre-redactados apuntando a tu dominio de producción `gastamosporigual.pages.dev`.
+   - Simplificamos el placeholder de integrante a simplemente **"Nombre"**.
 
 5. **Limpieza de Interfaz (Seguridad)**:
    - Eliminamos el selector de perspectiva *"Ver como"* de la cabecera en [App.jsx](file:///c:/Users/Leo/Documents/GastamosPorIgual/src/App.jsx). Ahora el perfil está estrictamente ligado al usuario autenticado de forma segura.
@@ -41,34 +42,24 @@ Este documento contiene el registro de cambios de la sesión de hoy y detalla lo
   3. En el campo **Site URL**, reemplazá `http://localhost:3000` por la URL de producción: `https://gastamosporigual.pages.dev`.
   4. En el campo **Redirect URLs** (debajo), hacé click en **Add URL** e ingresá `http://localhost:5173` para que cuando estés desarrollando y probando localmente en tu PC también funcione la redirección.
 
-### 2. El mail de registro llega a la carpeta SPAM
-- **Causa**: Supabase utiliza un servidor de correo SMTP público compartido para las cuentas gratuitas de prueba, el cual tiene baja reputación de entrega.
-- **Solución**:
-  - Para producción final, se puede conectar un SMTP gratuito propio (ej: Resend o SendGrid).
-  - **Para pruebas rápidas y desarrollo**, lo más recomendado es **desactivar la confirmación obligatoria por correo**:
-    1. En tu panel de Supabase, ve a **Authentication** -> **Providers**.
-    2. Hacé click para expandir la sección de **Email**.
-    3. Desactivá la casilla que dice **Confirm email** (Confirmar correo electrónico).
-    4. Hacé click en **Save** (Guardar).
-    *A partir de esto, cualquier usuario nuevo se registrará y podrá iniciar sesión al instante sin tener que verificar su correo.*
-
-### 3. Error al crear el grupo por falta de perfil de usuario
-- **Causa**: Al registrarse antes de ejecutar el SQL, el perfil en `public.profiles` no existe, violando la clave foránea.
-- **Solución SQL**: Ejecutar el siguiente script en el **SQL Editor** de Supabase:
-  ```sql
-  ALTER TABLE public.group_members ADD COLUMN IF NOT EXISTS email TEXT;
-  INSERT INTO public.profiles (id, email, full_name)
-  SELECT id, email, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', split_part(email, '@', 1))
-  FROM auth.users
-  ON CONFLICT (id) DO NOTHING;
-  ```
+### 2. El mail de registro llega a la carpeta SPAM / Error `email rate limit exceeded`
+- **Causa**: Supabase utiliza un servidor de correo SMTP público compartido para las cuentas gratuitas de prueba. Este servidor tiene una reputación de entrega muy baja (los correos caen en Spam) y un **límite estricto de envío de 3 o 4 correos electrónicos por hora por proyecto**. Al hacer varias pruebas seguidas, se excede este límite de inmediato y salta el error `email rate limit exceeded`.
+- **Soluciones**:
+  - **Opción A (Recomendada para Desarrollo)**: Desactivar la confirmación obligatoria por correo.
+    1. En tu panel de Supabase, ve a **Authentication** -> **Providers** -> **Email**.
+    2. Desactivá la casilla **Confirm email** y hacé click en **Save**.
+    *Esto hace que los registros sean instantáneos y elimina por completo el uso del correo durante tus pruebas locales.*
+  - **Opción B (Para Producción)**: Configurar un proveedor SMTP externo gratuito.
+    1. Registrate gratis en un proveedor de correo transaccional como [Resend](https://resend.com/) (permite 3000 correos al mes gratis).
+    2. Obtené las credenciales SMTP de Resend.
+    3. En Supabase, ve a **Authentication** -> **SMTP** (o *Email Provider*), activa la opción de SMTP personalizado y pega las claves. Esto elimina las tasas de spam y el límite de 3 correos por hora.
 
 ---
 
 ## 📋 Tareas Pendientes para la Próxima Sesión
 
 1. **Configurar URLs de Redirección en Supabase**: Seguir los pasos del punto 1 anterior.
-2. **Desactivar Confirmación por Email**: Seguir los pasos del punto 2 anterior para agilizar el registro de nuevos usuarios en tu red de amigos.
+2. **Resolver Límite de Email**: Desactivar temporalmente la confirmación por email (Opción A) o configurar SMTP personalizado con Resend (Opción B).
 3. **Validar Flujo Completo**:
    - Crear un grupo con integrantes con email desde la PC.
    - Registrar ese integrante con su email desde el celu y validar que ingrese directamente al grupo.
