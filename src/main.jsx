@@ -8,3 +8,12 @@ createRoot(document.getElementById('root')).render(
     <App />
   </StrictMode>,
 )
+
+// Prevent pinch-to-zoom on iOS
+document.addEventListener('gesturestart', function (e) {
+  e.preventDefault();
+});
+document.addEventListener('gesturechange', function (e) {
+  e.preventDefault();
+});
+

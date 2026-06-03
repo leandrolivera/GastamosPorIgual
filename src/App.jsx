@@ -196,11 +196,6 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Nombre del Usuario Logueado */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--panel-border)', padding: '6px 12px', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 600 }}>
-            <span>Hola, {currentUser} 👋</span>
-          </div>
-
           {/* Selector de Tema */}
           <button className="theme-toggle" onClick={toggleTheme} aria-label="Cambiar tema">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
@@ -215,6 +210,15 @@ export default function App() {
 
       {/* Contenido */}
       <main className="app-content">
+        {/* Mensaje de Bienvenida */}
+        {!loading && session && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--panel-border)', paddingBottom: '12px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+              Hola, {currentUser} 👋
+            </span>
+          </div>
+        )}
+
         {loading && (
           <div style={{ display: 'flex', flex: 1, justifyContent: 'center', alignItems: 'center', height: '200px', flexDirection: 'column', gap: '12px' }}>
             <div style={{ width: '40px', height: '40px', border: '3px solid var(--panel-border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />

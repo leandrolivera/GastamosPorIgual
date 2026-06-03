@@ -7,7 +7,8 @@ export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,12 +20,13 @@ export default function Auth() {
     try {
       if (isSignUp) {
         // Registro
+        const fullName = (firstName.trim() + ' ' + lastName.trim()).trim();
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: {
-              full_name: fullName.trim() || email.split('@')[0]
+              full_name: fullName || email.split('@')[0]
             }
           }
         });
@@ -96,25 +98,44 @@ export default function Auth() {
 
         <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
-          {/* Nombre completo (solo en Registro) */}
+          {/* Nombre (solo en Registro) */}
           {isSignUp && (
-            <div className="form-group">
-              <label className="form-label">Nombre Completo</label>
-              <div style={{ position: 'relative' }}>
-                <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                  <User size={18} />
+            <>
+              <div className="form-group">
+                <label className="form-label">Nombre (obligatorio)</label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                    <User size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="Nombre" 
+                    className="input-field" 
+                    style={{ paddingLeft: '36px' }}
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    required
+                  />
                 </div>
-                <input 
-                  type="text" 
-                  placeholder="Ej. Leandro Olivera" 
-                  className="input-field" 
-                  style={{ paddingLeft: '36px' }}
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                />
               </div>
-            </div>
+
+              <div className="form-group">
+                <label className="form-label">Apellido (opcional)</label>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                    <User size={18} />
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="Apellido" 
+                    className="input-field" 
+                    style={{ paddingLeft: '36px' }}
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </div>
+              </div>
+            </>
           )}
 
           {/* Email */}

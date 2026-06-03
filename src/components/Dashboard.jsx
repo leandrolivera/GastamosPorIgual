@@ -6,13 +6,17 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
-  const [memberInput, setMemberInput] = useState('');
+  const [memberFirstName, setMemberFirstName] = useState('');
+  const [memberLastName, setMemberLastName] = useState('');
   const [memberEmailInput, setMemberEmailInput] = useState('');
   const [membersList, setMembersList] = useState([]); // Array de objetos { name, email }
 
   const handleOpenModal = () => {
     setGroupName('');
     setGroupDesc('');
+    setMemberFirstName('');
+    setMemberLastName('');
+    setMemberEmailInput('');
     setMembersList([{ name: currentUser, email: userEmail || null }]);
     setIsModalOpen(true);
   };
@@ -35,9 +39,14 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
 
   const handleAddMember = (e) => {
     e.preventDefault();
-    const name = memberInput.trim();
+    const firstName = memberFirstName.trim();
+    const lastName = memberLastName.trim();
+    if (!firstName) {
+      alert('Por favor ingresa el nombre del integrante.');
+      return;
+    }
+    const name = (firstName + ' ' + lastName).trim();
     const email = memberEmailInput.trim() || null;
-    if (!name) return;
     
     // Validar nombre duplicado (ignorando mayúsculas)
     if (membersList.some(m => m.name.toLowerCase() === name.toLowerCase())) {
@@ -52,7 +61,8 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
     }
     
     setMembersList([...membersList, { name, email }]);
-    setMemberInput('');
+    setMemberFirstName('');
+    setMemberLastName('');
     setMemberEmailInput('');
   };
 
@@ -80,6 +90,9 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
     // Resetear form
     setGroupName('');
     setGroupDesc('');
+    setMemberFirstName('');
+    setMemberLastName('');
+    setMemberEmailInput('');
     setMembersList([{ name: currentUser, email: userEmail || null }]);
     setIsModalOpen(false);
   };
@@ -240,37 +253,63 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
               <div className="form-group">
                 <label className="form-label">Integrantes del Grupo</label>
                 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--panel-border)', padding: '12px', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <div style={{ position: 'relative', flex: 1.2 }}>
-                      <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                        <User size={16} />
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block' }}>Nombre (obligatorio)</label>
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                          <User size={14} />
+                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="Nombre" 
+                          className="input-field"
+                          style={{ paddingLeft: '32px', fontSize: '0.85rem', height: '36px' }}
+                          value={memberFirstName}
+                          onChange={(e) => setMemberFirstName(e.target.value)}
+                        />
                       </div>
-                      <input 
-                        type="text" 
-                        placeholder="Nombre" 
-                        className="input-field"
-                        style={{ paddingLeft: '36px' }}
-                        value={memberInput}
-                        onChange={(e) => setMemberInput(e.target.value)}
-                      />
                     </div>
-                    <div style={{ position: 'relative', flex: 1.5 }}>
-                      <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>@</span>
+                    
+                    <div style={{ position: 'relative', flex: 1 }}>
+                      <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block' }}>Apellido (opcional)</label>
+                      <div style={{ position: 'relative' }}>
+                        <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                          <User size={14} />
+                        </div>
+                        <input 
+                          type="text" 
+                          placeholder="Apellido" 
+                          className="input-field"
+                          style={{ paddingLeft: '32px', fontSize: '0.85rem', height: '36px' }}
+                          value={memberLastName}
+                          onChange={(e) => setMemberLastName(e.target.value)}
+                        />
                       </div>
-                      <input 
-                        type="email" 
-                        placeholder="Email (opcional)" 
-                        className="input-field"
-                        style={{ paddingLeft: '32px' }}
-                        value={memberEmailInput}
-                        onChange={(e) => setMemberEmailInput(e.target.value)}
-                      />
                     </div>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddMember}>
-                      Agregar
-                    </button>
+                  </div>
+
+                  <div>
+                    <label className="form-label" style={{ fontSize: '0.75rem', marginBottom: '4px', display: 'block' }}>Email (opcional)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ position: 'relative', flex: 1 }}>
+                        <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>@</span>
+                        </div>
+                        <input 
+                          type="email" 
+                          placeholder="email@ejemplo.com" 
+                          className="input-field"
+                          style={{ paddingLeft: '32px', fontSize: '0.85rem', height: '36px' }}
+                          value={memberEmailInput}
+                          onChange={(e) => setMemberEmailInput(e.target.value)}
+                        />
+                      </div>
+                      <button type="button" className="btn btn-secondary btn-sm" style={{ height: '36px', fontSize: '0.8rem', padding: '0 12px' }} onClick={handleAddMember}>
+                        Agregar
+                      </button>
+                    </div>
                   </div>
                 </div>
 
