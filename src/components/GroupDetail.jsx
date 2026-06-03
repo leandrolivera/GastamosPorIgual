@@ -13,7 +13,8 @@ const CATEGORY_NAMES = {
   liquidar: 'Pago de Deuda 🤝'
 };
 
-export default function GroupDetail({ group, onBack, onSaveExpense, onDeleteExpense, onDeleteGroup, currentUser }) {
+export default function GroupDetail({ group, onBack, onSaveExpense, onDeleteExpense, onDeleteGroup, currentUser, currentUserId }) {
+  const isCreator = group.createdBy === currentUserId;
   const [activeTab, setActiveTab] = useState('gastos'); // 'gastos' | 'saldos' | 'graficos'
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -74,9 +75,11 @@ export default function GroupDetail({ group, onBack, onSaveExpense, onDeleteExpe
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{group.members.join(', ')}</span>
           </div>
         </div>
-        <button className="btn btn-danger btn-sm" onClick={handleDeleteGroupClick} aria-label="Eliminar grupo">
-          <Trash2 size={16} />
-        </button>
+        {isCreator && (
+          <button className="btn btn-danger btn-sm" onClick={handleDeleteGroupClick} aria-label="Eliminar grupo">
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -259,9 +262,9 @@ export default function GroupDetail({ group, onBack, onSaveExpense, onDeleteExpe
                               const inviteUrl = window.location.origin;
                               let msg = '';
                               if (email) {
-                                msg = `¡Hola ${member}! Te agregué al grupo "${group.name}" en GastamosPorIgual. Registrate con tu correo "${email}" para unirte: ${inviteUrl}`;
+                                msg = `¡Hola *${member}*! 👋\n\nTe agregué al grupo "*${group.name}*" en *GastamosPorIgual* 💸.\n\nRegistrate con tu correo *${email}* para unirte:\n👉 ${inviteUrl}`;
                               } else {
-                                msg = `¡Hola ${member}! Te agregué al grupo "${group.name}" en GastamosPorIgual. Creá tu cuenta para unirte: ${inviteUrl}`;
+                                msg = `¡Hola *${member}*! 👋\n\nTe agregué al grupo "*${group.name}*" en *GastamosPorIgual* 💸.\n\nCreá tu cuenta para unirte y empezar a dividir los gastos:\n👉 ${inviteUrl}`;
                               }
                               window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
                             }}

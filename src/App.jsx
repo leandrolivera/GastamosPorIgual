@@ -240,6 +240,7 @@ export default function App() {
               onDeleteExpense={handleDeleteExpense}
               onDeleteGroup={handleDeleteGroup}
               currentUser={currentUser}
+              currentUserId={session?.user?.id}
             />
           ) : (
             dashboardTab === 'groups' ? (

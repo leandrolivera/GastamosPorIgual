@@ -106,6 +106,7 @@ export const storageService = {
         id: group.id,
         name: group.name,
         description: group.description,
+        createdBy: group.created_by,
         members: members.map(m => m.member_name),
         memberDetails: members,
         expenses: fullExpenses,
