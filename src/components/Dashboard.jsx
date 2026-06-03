@@ -7,7 +7,14 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
   const [groupName, setGroupName] = useState('');
   const [groupDesc, setGroupDesc] = useState('');
   const [memberInput, setMemberInput] = useState('');
-  const [membersList, setMembersList] = useState(['Leo']); // 'Leo' por defecto
+  const [membersList, setMembersList] = useState([currentUser]); // Creador por defecto
+
+  const handleOpenModal = () => {
+    setGroupName('');
+    setGroupDesc('');
+    setMembersList([currentUser]);
+    setIsModalOpen(true);
+  };
 
   // Calcular balances acumulados de currentUser
   let totalOwedToMe = 0;
@@ -61,7 +68,7 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
     // Resetear form
     setGroupName('');
     setGroupDesc('');
-    setMembersList(['Leo']);
+    setMembersList([currentUser]);
     setIsModalOpen(false);
   };
 
@@ -104,7 +111,7 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
       {/* Lista de Grupos */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
         <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>Mis Grupos</h3>
-        <button className="btn btn-sm btn-primary" onClick={() => setIsModalOpen(true)}>
+        <button className="btn btn-sm btn-primary" onClick={handleOpenModal}>
           <Plus size={16} /> Crear Grupo
         </button>
       </div>
@@ -116,7 +123,7 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
             Creá un grupo y agregá a tus amigos para empezar a dividir gastos.
           </p>
-          <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={() => setIsModalOpen(true)}>
+          <button className="btn btn-primary" style={{ marginTop: '8px' }} onClick={handleOpenModal}>
             <Plus size={18} /> Crear Primer Grupo
           </button>
         </div>
@@ -244,7 +251,7 @@ export default function Dashboard({ groups, onSelectGroup, onCreateGroup, onDele
                   {membersList.map(name => (
                     <span key={name} className="member-chip">
                       {name}
-                      {name !== 'Leo' && (
+                      {name !== currentUser && (
                         <button type="button" onClick={() => handleRemoveMember(name)} aria-label={`Eliminar a ${name}`}>
                           <X size={14} />
                         </button>
